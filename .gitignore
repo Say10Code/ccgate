@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.db
+*.db-wal
+*.db-shm
+graphify-out/
+_a/
+*.log
+.DS_Store

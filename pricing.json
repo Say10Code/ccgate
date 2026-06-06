@@ -1,0 +1,54 @@
+{
+  "models": {
+    "deepseek-v4-flash": {
+      "input": 0.30,
+      "output": 0.50,
+      "cache_read": 0.03,
+      "cache_write": 0.30
+    },
+    "deepseek-v4-pro": {
+      "input": 0.42,
+      "output": 0.84,
+      "cache_read": 0.042,
+      "cache_write": 0.42
+    },
+    "deepseek-v3.2": {
+      "input": 0.28,
+      "output": 0.42,
+      "cache_read": 0.028,
+      "cache_write": 0.28
+    },
+    "deepseek-r1": {
+      "input": 0.55,
+      "output": 2.19,
+      "cache_read": 0.14,
+      "cache_write": 0.55
+    },
+    "deepseek-chat": {
+      "input": 0.30,
+      "output": 0.50,
+      "cache_read": 0.03,
+      "cache_write": 0.30,
+      "_comment": "Legacy alias for deepseek-v4-flash (deprecated 2026-07-24)"
+    },
+    "deepseek-reasoner": {
+      "input": 0.55,
+      "output": 2.19,
+      "cache_read": 0.14,
+      "cache_write": 0.55,
+      "_comment": "Legacy alias for deepseek-r1 thinking mode (deprecated 2026-07-24)"
+    }
+  },
+  "model_map": {
+    "claude-opus-4-8": "deepseek-v4-pro",
+    "claude-opus-4-7": "deepseek-v4-pro",
+    "claude-opus-4": "deepseek-v4-pro",
+    "claude-sonnet-4-6": "deepseek-v4-flash",
+    "claude-sonnet-4": "deepseek-v4-flash",
+    "claude-haiku-4-5": "deepseek-v4-flash",
+    "claude-haiku-4": "deepseek-v4-flash",
+    "deepseek-chat": "deepseek-v4-flash",
+    "deepseek-reasoner": "deepseek-r1"
+  },
+  "default_model": "deepseek-v4-flash"
+}
