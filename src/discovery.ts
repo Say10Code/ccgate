@@ -213,7 +213,7 @@ export async function discoverAllSessions(): Promise<DiscoveredSession[]> {
   // 2. Enrich with ccgate proxy data
   const db = getDb();
   for (const session of allSessions) {
-    const ccSession = db.prepare('SELECT * FROM sessions WHERE id = ?').get(session.sessionId) as any;
+    const ccSession = db.prepare('SELECT request_count, total_input_tokens, total_output_tokens, total_cost FROM sessions WHERE id = ?').get(session.sessionId) as { request_count: number; total_input_tokens: number; total_output_tokens: number; total_cost: number } | undefined;
     if (ccSession && ccSession.request_count > 0) {
       session.proxyData = {
         requests: ccSession.request_count,

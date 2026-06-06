@@ -2,6 +2,7 @@ import { getDb } from './db.js';
 import { UsageMetrics } from './sse-interceptor.js';
 import { calculateCost, CostBreakdown } from './pricing.js';
 import { v4 as uuidv4 } from 'uuid';
+import type { CountRow, SumRow, ModelRow, CostHistoryRow } from './types.js';
 
 export interface Session {
   id: string;
@@ -186,7 +187,7 @@ export function getSessionRequests(sessionId: string, limit = 50): RequestRecord
  */
 export function getAllRequests(limit = 50, offset = 0): { requests: RequestRecord[]; total: number } {
   const db = getDb();
-  const total = (db.prepare('SELECT COUNT(*) as c FROM requests').get() as any).c;
+  const total = (db.prepare('SELECT COUNT(*) as c FROM requests').get() as CountRow).c;
   const requests = db.prepare(
     'SELECT * FROM requests ORDER BY created_at DESC LIMIT ? OFFSET ?'
   ).all(limit, offset) as RequestRecord[];
@@ -238,11 +239,11 @@ export function getStats(): {
 } {
   const db = getDb();
 
-  const totalSessions = (db.prepare('SELECT COUNT(*) as c FROM sessions').get() as any).c;
-  const activeSessions = (db.prepare("SELECT COUNT(*) as c FROM sessions WHERE status = 'active'").get() as any).c;
-  const totalRequests = (db.prepare('SELECT COUNT(*) as c FROM requests').get() as any).c;
-  const totalTokens = (db.prepare('SELECT COALESCE(SUM(input_tokens + output_tokens), 0) as t FROM requests').get() as any).t;
-  const totalCost = (db.prepare('SELECT COALESCE(SUM(cost), 0) as t FROM requests').get() as any).t;
+  const totalSessions = (db.prepare('SELECT COUNT(*) as c FROM sessions').get() as CountRow).c;
+  const activeSessions = (db.prepare("SELECT COUNT(*) as c FROM sessions WHERE status = 'active'").get() as CountRow).c;
+  const totalRequests = (db.prepare('SELECT COUNT(*) as c FROM requests').get() as CountRow).c;
+  const totalTokens = (db.prepare('SELECT COALESCE(SUM(input_tokens + output_tokens), 0) as t FROM requests').get() as SumRow).t;
+  const totalCost = (db.prepare('SELECT COALESCE(SUM(cost), 0) as t FROM requests').get() as SumRow).t;
 
   return {
     total_sessions: totalSessions,

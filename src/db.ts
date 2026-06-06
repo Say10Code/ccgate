@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { config } from './config.js';
 import { mkdirSync, existsSync } from 'fs';
 
-let db: Database.Database;
+let db: Database.Database | undefined;
 let dbPathOverride: string | null = null;
 
 /**
@@ -13,7 +13,7 @@ export function setDbPath(path: string): void {
   // Close existing connection if any
   if (db) {
     db.close();
-    (db as any) = undefined;
+    db = undefined;
   }
 }
 
@@ -21,7 +21,7 @@ export function setDbPath(path: string): void {
  * Open (or create) the SQLite database in WAL mode.
  */
 export function getDb(): Database.Database {
-  if (db) return db;
+  if (db) return db!;
 
   const dbPath = dbPathOverride || `${config.dataDir}/ccgate.db`;
 
@@ -118,6 +118,6 @@ function runMigrations(database: Database.Database): void {
 export function closeDb(): void {
   if (db) {
     db.close();
-    (db as any) = undefined;
+    db = undefined;
   }
 }

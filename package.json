@@ -1,6 +1,6 @@
 {
   "name": "ccgate",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Transparent LLM cost proxy for Claude Code → DeepSeek API. Tracks sessions, tokens, and spending in real-time.",
   "main": "dist/index.js",
   "bin": {

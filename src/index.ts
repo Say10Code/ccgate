@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import net from 'net';
 import { execSync } from 'child_process';
 import { getDb } from './db.js';
+import { startDiscoveryScan } from './discovery-cache.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -120,6 +121,18 @@ async function main(): Promise<void> {
 
   try {
     await server.listen({ port: config.port, host: '127.0.0.1' });
+
+    startDiscoveryScan();
+
+    // Session auto-complete after 1h inactivity
+    const sessionTtl = parseInt(process.env.CCGATE_SESSION_TTL || '3600000', 10);
+    setInterval(() => {
+      try {
+        const db = getDb();
+        db.prepare("UPDATE sessions SET status = 'completed' WHERE status = 'active' AND last_active < ?")
+          .run(new Date(Date.now() - sessionTtl).toISOString());
+      } catch {}
+    }, 600_000).unref();
 
     if (wantTui || wantWatch) {
       const { startWatch } = await import('./tui.js');

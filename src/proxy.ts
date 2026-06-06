@@ -11,7 +11,9 @@ import pricingData from '../pricing.json' with { type: 'json' };
 import { recordRequest, getStats, getAllRequests, getModelBreakdown, getCostHistory, getSessionRequests, listSessions } from './session.js';
 import { shouldBlock, logBudgetStatus, getBudgetSummary } from './budget.js';
 import { eventBus } from './event-bus.js';
-import { discoverAllSessions } from './discovery.js';
+import { getSessions } from './discovery-cache.js';
+import { registerWebSocket } from './ws-handler.js';
+import type { ProxyRequestBody } from './types.js';
 import { appendFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -19,6 +21,10 @@ import { exec } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_START_TIME = Date.now();
+
+// ── Pricing data type ───────────────────────────────────────────
+interface PricingSchema { model_map?: Record<string, string>; models?: Record<string, unknown> }
+const PD = pricingData as unknown as PricingSchema;
 
 // ── File logger ─────────────────────────────────────────────────
 
@@ -36,7 +42,7 @@ type ModelMap = Record<string, string>;
 
 function loadModelMap(): ModelMap {
   const map: ModelMap = {};
-  const raw = (pricingData as any).model_map || {};
+  const raw = PD.model_map || {};
   for (const [key, value] of Object.entries(raw)) {
     map[key.toLowerCase()] = value as string;
   }
@@ -58,7 +64,7 @@ export function remapModel(originalModel: string): { remapped: string; original:
   }
   if (bestMatch) return { remapped: MODEL_MAP[bestMatch], original: originalModel };
 
-  const knownModels = (pricingData as any).models || {};
+  const knownModels = PD.models || {};
   const isKnownDS = lower in knownModels || Object.values(MODEL_MAP).some(v => v === lower);
   if (!isKnownDS) logger.log(`Unknown model "${originalModel}" — forwarding as-is`, 'warn');
   return { remapped: originalModel, original: originalModel };
@@ -124,7 +130,7 @@ export function createServer(): FastifyInstance {
   // ── All sessions (discovery + ccgate DB) ─────────────────────
   server.get('/api/sessions/all', async (_req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const sessions = await discoverAllSessions();
+      const sessions = await getSessions();
       return reply.send({ sessions });
     } catch (err: any) {
       return reply.status(500).send({ error: err.message });
@@ -161,7 +167,25 @@ export function createServer(): FastifyInstance {
     return reply.send({ history: getCostHistory(hours) });
   });
 
-  // ── Budget ────────────────────────────────────────────────────
+  // ── Export ────────────────────────────────────────────────────
+  server.get('/api/export', async (req: FastifyRequest, reply: FastifyReply) => {
+    const q = req.query as { format?: string; days?: string };
+    const format = q.format || 'json';
+    const days = Math.min(365, parseInt(q.days || '30', 10));
+    const { requests } = getAllRequests(10000, 0);
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const filtered = requests.filter(r => (r.created_at || '') >= cutoffStr);
+    if (format === 'csv') {
+      const csv = ['id,session_id,model,original_model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,cost,duration_ms,streaming,created_at',
+        ...filtered.map(r => [r.id, r.session_id, r.model, r.original_model, r.input_tokens, r.output_tokens, r.cache_read_tokens, r.cache_write_tokens, r.cost.toFixed(6), r.duration_ms, r.is_streaming ? 1 : 0, r.created_at].join(','))
+      ].join('\n');
+      return reply.type('text/csv').header('Content-Disposition', `attachment; filename="ccgate-export-${new Date().toISOString().slice(0,10)}.csv"`).send(csv);
+    }
+    return reply.send({ exported_at: new Date().toISOString(), days, count: filtered.length, requests: filtered });
+  });
+
+    // ── Budget ────────────────────────────────────────────────────
   server.get('/api/budget', async (_req: FastifyRequest, reply: FastifyReply) => {
     return reply.send(getBudgetSummary());
   });
@@ -263,7 +287,7 @@ export function createServer(): FastifyInstance {
     const anthropicVersion = req.headers['anthropic-version'] as string || '2023-06-01';
     const sessionId = (req.headers['x-session-id'] as string) || uuidv4();
 
-    const body = req.body as any;
+    const body = req.body as ProxyRequestBody;
     const originalModel = body?.model || 'unknown';
     const { remapped } = remapModel(originalModel);
     body.model = remapped;
@@ -360,7 +384,7 @@ async function handleStreamingResponse(
   });
 
   if (upstreamResp.body) {
-    const nodeReadable = Readable.fromWeb(upstreamResp.body as any);
+    const nodeReadable = Readable.fromWeb(upstreamResp.body as unknown as import('stream/web').ReadableStream);
     nodeReadable.pipe(interceptor).pipe(reply.raw);
   } else {
     reply.raw.end();
